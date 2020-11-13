@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  lambda-createfeedstocks-yahoofinance-aws
+
+  Sample SAM Template for lambda-createfeedstocks-yahoofinance-aws
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 900
+
+Resources:
+  StocksDataFeedsYahooFinanceFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: StocksDataFeedsYahooFinance
+      CodeUri: stocks_data_feeds_yahoo_finance/
+      Handler: main.lambda_handler
+      Runtime: python3.7
+      Events:
+        StocksDataFeedsYahooFinanceAPI:
+          Type: HttpApi # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /stocksdatafeedsyahoofinance
+            Method: get
+#Parameters:
+#Env:
+#    Default: dev 
+#    Type: String
+#BUCKET_NAME:
+#    Default: tradeable
+#    Type: String
+
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  StocksDataFeedsYahooFinanceAPI:
+    Description: "API Gateway endpoint URL for Prod stage for stocks_data_feeds_yahoo_finance function"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/stocksdatafeedsyahoofinance /"
+  StocksDataFeedsYahooFinanceFunction:
+    Description: "StocksDataFeedsYahooFinanceFunction Function ARN"
+    Value: !GetAtt StocksDataFeedsYahooFinanceFunction.Arn
+ 

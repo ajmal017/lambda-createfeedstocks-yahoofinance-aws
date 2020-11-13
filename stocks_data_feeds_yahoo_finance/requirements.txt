@@ -1,0 +1,8 @@
+ib_insync
+yfinance
+boto3
+pandas
+numpy
+glob3
+botocore
+matplotlib
