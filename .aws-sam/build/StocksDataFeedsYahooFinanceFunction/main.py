@@ -58,6 +58,9 @@ import boto3
 import os
 import logging
 
+from botocore.exceptions import ClientError
+
+
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
@@ -65,10 +68,14 @@ from dateutil.relativedelta import relativedelta
 
 
 s3 = boto3.client('s3')
+sqs = boto3.client('sqs')
+
 
 return_message = "Getting stocks from Yahoo finance:" # local variable referenced before assignment
 error_message = "" # local variable referenced before assignment
 BUCKET_NAME = "tradeable" # coger de las variables de entorno 
+SQS_NAME = "tradeable_sqs" # coger de las variables de entorno 
+
 
 def process():
     end =  datetime.now()
@@ -78,7 +85,26 @@ def process():
 
     # test_lambda_function()
 
+    # Create a SQS called tradeable_feeds_messages to push a notification when process is finished
+    logger.info("Trying to create sqs queue  : " + SQS_NAME)
 
+    queue = None    
+    #queue_attributes={'FifoQueue': 'false' }
+
+    queue_attributes={}
+    try:            
+        queue = create_queue(
+            SQS_NAME
+        )
+        logger.info("Created queue '%s' with URL=%s", SQS_NAME, queue.url)
+    except ClientError as error:
+        logger.exception("Couldn't create queue named '%s'.", SQS_NAME)        
+        queue = get_queue(SQS_NAME)
+        # exists 
+
+    response = sqs.get_queue_attributes(QueueUrl=queue.url, AttributeNames=['All'])
+
+    logger.info("Getting Sqs   URL: " + queue.url) #  + "QueueArn :" + response['QueueArn']   + ",Policy ;  " + response['Policy']
 
     for contract in ib_trader_contracts: 
 
@@ -112,13 +138,28 @@ def process():
         SETTINGS_REALPATH_STOCK_DATA_MONTH = "month/"
         SETTINGS_REALPATH_STOCK_DATA_WEEK = "week/"
 
-        logger.info ("Adding file : " + SETTINGS_REALPATH_STOCK_DATA_DAY   + contract.symbol + '.csv to bucket : ' + BUCKET_NAME)
-        logger.info ("Adding file : " + SETTINGS_REALPATH_STOCK_DATA_MONTH   + contract.symbol + '.csv to bucket : ' + BUCKET_NAME)
-        logger.info ("Adding file : " + SETTINGS_REALPATH_STOCK_DATA_WEEK   + contract.symbol + '.csv to bucket : ' + BUCKET_NAME)
 
+        logger.info ("Adding file : " + SETTINGS_REALPATH_STOCK_DATA_DAY   + contract.symbol + '.csv to bucket : ' + BUCKET_NAME)        
         copy_to_s3(client=s3, df=df_d, bucket=BUCKET_NAME, filepath=SETTINGS_REALPATH_STOCK_DATA_DAY   + contract.symbol + '.csv')
+        logger.info ("Adding file : " + SETTINGS_REALPATH_STOCK_DATA_MONTH   + contract.symbol + '.csv to bucket : ' + BUCKET_NAME)
         copy_to_s3(client=s3, df=df_w, bucket=BUCKET_NAME, filepath=SETTINGS_REALPATH_STOCK_DATA_MONTH   + contract.symbol + '.csv')
+        logger.info ("Adding file : " + SETTINGS_REALPATH_STOCK_DATA_WEEK   + contract.symbol + '.csv to bucket : ' + BUCKET_NAME)
         copy_to_s3(client=s3, df=df_m, bucket=BUCKET_NAME, filepath=SETTINGS_REALPATH_STOCK_DATA_WEEK   + contract.symbol + '.csv')
+        
+        
+        
+
+    # Mandamos un mensaje a la cola para ser capturado por otra lambda function 
+    tradeable_message = json.dumps({
+        "message": "Download CSV stocks data from " + return_message,
+        "MessageGroupId" : 1,
+        "date" : end.strftime('%Y-%m-%d')            
+    })   
+
+    logger.info("Sending Message  to Sqs " + str(tradeable_message))
+     
+    send_message(queue, tradeable_message)
+
     
     return "it worked"
         
