@@ -13,15 +13,137 @@ import boto3
 from botocore.exceptions import ClientError
 
 
+logging.getLogger().setLevel(logging.INFO)
+logger = logging.getLogger()
+
+sqs = boto3.resource('sqs')
+
+
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
 
+
+def get_queue(name):
+    """
+    Gets an SQS queue by name.
+
+    Usage is shown in usage_demo at the end of this module.
+
+    :param name: The name that was used to create the queue.
+    :return: A Queue object.
+    """
+    try:
+        queue = sqs.get_queue_by_name(QueueName=name)
+        logger.info("Got queue '%s' with URL=%s", name, queue.url)
+    except ClientError as error:
+        logger.exception("Couldn't get queue named %s.", name)
+        raise error
+    else:
+        return queue
+
+
+def create_queue(name, attributes=None):
+    """
+    Creates an Amazon SQS queue.
+
+    Usage is shown in usage_demo at the end of this module.
+
+    :param name: The name of the queue. This is part of the URL assigned to the queue.
+    :param attributes: The attributes of the queue, such as maximum message size or
+                       whether it's a FIFO queue.
+    :return: A Queue object that contains metadata about the queue and that can be used
+             to perform queue operations like sending and receiving messages.
+    """
+    if not attributes:
+        attributes = {}
+
+    try:
+        queue = sqs.create_queue(
+            QueueName=name,
+            Attributes=attributes
+        )
+        logger.info("Created queue '%s' with URL=%s", name, queue.url)
+    except ClientError as error:
+        logger.exception("Couldn't create queue named '%s'.", name)
+        raise error
+    else:
+        return queue
+
+def send_message(queue, message_body, message_attributes=None):
+    """
+    Send a message to an Amazon SQS queue.
+
+    Usage is shown in usage_demo at the end of this module.
+
+    :param queue: The queue that receives the message.
+    :param message_body: The body text of the message.
+    :param message_attributes: Custom attributes of the message. These are key-value
+                               pairs that can be whatever you want.
+    :return: The response from SQS that contains the assigned message ID.
+    """
+    if not message_attributes:
+        message_attributes = {}
+
+    try:
+        response = queue.send_message(
+            MessageBody=message_body,
+            MessageAttributes=message_attributes
+        )
+    except ClientError as error:
+        logger.exception("Send message failed: %s", message_body)
+        raise error
+    else:
+        return response
+
+def send_messages(queue, messages):
+    """
+    Send a batch of messages in a single request to an SQS queue.
+    This request may return overall success even when some messages were not sent.
+    The caller must inspect the Successful and Failed lists in the response and
+    resend any failed messages.
+
+    Usage is shown in usage_demo at the end of this module.
+
+    :param queue: The queue to receive the messages.
+    :param messages: The messages to send to the queue. These are simplified to
+                     contain only the message body and attributes.
+    :return: The response from SQS that contains the list of successful and failed
+             messages.
+    """
+    try:
+        entries = [{
+            'Id': str(ind),
+            'MessageBody': msg['body'],
+            'MessageAttributes': msg['attributes']
+        } for ind, msg in enumerate(messages)]
+        response = queue.send_messages(Entries=entries)
+        if 'Successful' in response:
+            for msg_meta in response['Successful']:
+                logger.info(
+                    "Message sent: %s: %s",
+                    msg_meta['MessageId'],
+                    messages[int(msg_meta['Id'])]['body']
+                )
+        if 'Failed' in response:
+            for msg_meta in response['Failed']:
+                logger.warning(
+                    "Failed to send: %s: %s",
+                    msg_meta['MessageId'],
+                    messages[int(msg_meta['Id'])]['body']
+                )
+    except ClientError as error:
+        logger.exception("Send messages failed to queue: %s", queue)
+        raise error
+    else:
+        return response
+
 def copy_to_s3(client, df, bucket, filepath):
     csv_buf = StringIO()
-    df.to_csv(csv_buf, header=True, index=False)
-    csv_buf.seek(0)
+    df.to_csv(csv_buf, header=True, index=True)    
+    csv_buf.seek(0) 
+    #logger.info ("Body:" + csv_buf.getvalue())     
     client.put_object(Bucket=bucket, Body=csv_buf.getvalue(), Key=filepath)
     print(f'Copy {df.shape[0]} rows to S3 Bucket {bucket} at {filepath}, Done!')
 
@@ -165,6 +287,7 @@ def getSupportResistances(dfData):
 
     support_levels = []
     resistance_levels  = []
+    logger.info ()
     mean_value =  np.mean(dfData[StockDataFields.HIGH.value] - dfData[StockDataFields.LOW.value])
     for i in range(2,dfData.shape[0]-2):
         # Finally, let’s create a list that will contain the levels we find. Each level is a tuple whose first element is the index of the signal candle and the second element is the price value.
@@ -235,8 +358,8 @@ def getIndexLowerDivergence(dfData,lPeaksPrice,lPeaksIndicator):
         if (nextPricePeak >  currentPricePeak and  nextIndicatorPeakPrice < currentIndicatorPeakPrice and 
             currentpricePeakindex == currentIndicatorPeakindex and  nextPricePeakIndex == nextIndicatorPeakindex):
 
-                diverg_date1 = dfData["date"][currentpricePeakindex]
-                diverg_date2 = dfData["date"][nextPricePeakIndex]
+                diverg_date1 = dfData[StockDataFields.DATE.value][currentpricePeakindex]
+                diverg_date2 = dfData[StockDataFields.DATE.value][nextPricePeakIndex]
                 dfDivergence = dfDivergence.append({'DIVERG_DATE1': diverg_date1, 'DIVERG_DATE2': diverg_date2,'DIVERG_PRCE1' : currentPricePeak, 'DIVERG_PRCE2': nextPricePeak,
                  'DIVERG_INDICATOR1' : currentIndicatorPeakPrice,'DIVERG_INDICATOR2' :nextIndicatorPeakPrice }, ignore_index=True)
 
@@ -281,8 +404,8 @@ def getIndexUpperDivergence(dfData, lValleysPrice,lValleysIndicator):
         if (nextPriceValley <  currentPriceValley and  nextIndicatorValleyPrice > currentIndicatorValleyPrice and 
             currentpriceValleyindex == currentIndicatorValleyindex and  nextPriceValleyIndex == nextIndicatorValleyindex):
 
-                diverg_date1 = dfData["date"][currentpriceValleyindex]
-                diverg_date2 = dfData["date"][nextPriceValleyIndex]
+                diverg_date1 = dfData[StockDataFields.DATE.value][currentpriceValleyindex]
+                diverg_date2 = dfData[StockDataFields.DATE.value][nextPriceValleyIndex]
                 dfDivergence = dfDivergence.append({'DIVERG_DATE1': diverg_date1, 'DIVERG_DATE2': diverg_date2,'DIVERG_PRCE1' : currentPriceValley, 'DIVERG_PRCE2': nextPriceValley,
                  'DIVERG_INDICATOR1' : currentIndicatorValleyindex,'DIVERG_INDICATOR2' :nextIndicatorValleyindex }, ignore_index=True)
 

@@ -22,6 +22,19 @@ Resources:
           Properties:
             Path: /stocksdatafeedsyahoofinance
             Method: get
+  SupportResistanceDivergencesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SupportResistanceDivergences
+      CodeUri: SupportResistanceDivergencesFunction
+      Handler: main.lambda_handler
+      Runtime: python3.7
+      Events:
+        SupportResistanceDivergencesAPI:
+          Type: HttpApi
+          Properties:
+            Path: /getsupportresistancedivergencesdata
+            Method: get
 Outputs:
   StocksDataFeedsYahooFinanceAPI:
     Description: API Gateway endpoint URL for Prod stage for stocks_data_feeds_yahoo_finance
@@ -34,4 +47,15 @@ Outputs:
     Value:
       Fn::GetAtt:
       - StocksDataFeedsYahooFinanceFunction
+      - Arn
+  SupportResistanceDivergencesFunctionAPI:
+    Description: API Gateway endpoint URL for Prod stage for stocks_data_feeds_yahoo_finance
+      function
+    Value:
+      Fn::Sub: https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/getdatasupportresistancedivergences/
+  SupportResistanceDivergencesFunction:
+    Description: SupportResistanceDivergencesFunction Function ARN
+    Value:
+      Fn::GetAtt:
+      - SupportResistanceDivergencesFunction
       - Arn

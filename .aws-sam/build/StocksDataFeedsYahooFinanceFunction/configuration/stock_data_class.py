@@ -1,8 +1,8 @@
 from enum import Enum
 class StockDataFields(Enum):
-    HIGH  = "high"
-    LOW  = "low"
+    HIGH  = "High"
+    LOW  = "Low"
     VOLUME = "volume"
-    DATE = "date"
-    OPEN = "open"
-    CLOSE = "close"
+    DATE = "Date"
+    OPEN = "Open"
+    CLOSE = "Close"

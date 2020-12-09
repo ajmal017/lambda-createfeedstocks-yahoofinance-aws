@@ -5,3 +5,8 @@
 codeuri = "stocks_data_feeds_yahoo_finance/"
 runtime = "python3.7"
 functions = ["StocksDataFeedsYahooFinanceFunction"]
+
+[build_definitions.33ff4442-7c84-4cc7-81e9-fab82f811c18]
+codeuri = "support_resistance_divergences_function/"
+runtime = "python3.7"
+functions = ["SupportResistanceDivergencesFunction"]

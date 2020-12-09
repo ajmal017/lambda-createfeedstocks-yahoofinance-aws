@@ -1,12 +1,20 @@
 # llambda-createfeedstocks-yahoofinance-aws
 
-Basic Lambda Function included in a SAM Template to deploy a HTTP API GATEWAY endpoint to download stock data from Yahoo Finance and upload CSV data to S3. 
+Basic Lambdas Functions included in a SAM Template to deploy a HTTP API GATEWAY endpoint to download stock data from Yahoo Finance and upload CSV data to 
+S3. 
+
+Endpoints 
+
+-  /stocksdatafeedsyahoofinance : Download data from Yahoo Finance, upload CSV and generate a SQS message to sync-
+-  /getsupportresistancedivergencesdata. Get new sqs messages, generate new signals CSV file just in case and provide link to download data.
 
 ## Requirements
 
 - Bucket Created - Called "tradeable"
 - Make sure you set up right roles to Lambda Function  (S3FullAccess) and for your CLI user.
-
+- Please give following roles access to SQS,
+  SupportResistanceDivergencesFunctionRole
+  SupportResistanceDivergencesFunctionRole
 
 
 This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
@@ -61,14 +69,15 @@ Build your application with the `sam build --use-container` command.
 lambda-createfeedstocks-yahoofinance-aws$ sam build --use-container
 ```
 
-The SAM CLI installs dependencies defined in `hello_world/requirements.txt`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
+The SAM CLI installs dependencies defined in `support_resistance_divergences_function/requirements.txt` or
+`stocks_data_feeds_yahoo_finance/requirements.txt`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
 
 Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
 
 Run functions locally and invoke them with the `sam local invoke` command.
 
 ```bash
-lambda-createfeedstocks-yahoofinance-aws$ sam local invoke HelloWorldFunction --event events/event.json
+lambda-createfeedstocks-yahoofinance-aws$ sam local invoke StocksDataFeedsYahooFinanceAPI --event events/event.json
 ```
 
 The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.
@@ -86,7 +95,12 @@ The SAM CLI reads the application template to determine the API's routes and the
           Type: HTTTP
           Properties:
             Path: /stocksdatafeedsyahoofinance
-            Method: get
+            Method: get    
+        SupportResistanceDivergencesAPI:
+          Type: HttpApi # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /getsupportresistancedivergencesdata
+            Method: get  
 ```
 
 ## Add a resource to your application
